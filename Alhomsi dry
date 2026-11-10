@@ -1,0 +1,784 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALHOMSI - نظام إدارة المغسلة المحترف</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+        }
+        
+        /* Print Styles - optimized for 80mm receipt & A4 */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-receipt, #printable-receipt * { visibility: visible; }
+            #printable-receipt { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                max-width: 80mm;
+                padding: 10px;
+                margin: 0 auto;
+                font-size: 11px;
+                color: #000;
+            }
+            .no-print { display: none !important; }
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Toast Notification Box -->
+    <div id="toast" class="fixed bottom-5 left-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 flex items-center gap-3 border border-slate-700">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMsg" class="text-xs font-semibold"></span>
+    </div>
+
+    <!-- Main Header -->
+    <header class="bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white shadow-lg sticky top-0 z-40 border-b border-blue-700">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2.5 rounded-xl backdrop-blur-sm border border-white/20">
+                    <i class="fa-solid fa-soap text-2xl text-cyan-300 animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-black tracking-wider flex items-center gap-2">
+                        ALHOMSI <span class="bg-cyan-500 text-blue-950 text-[10px] uppercase px-2 py-0.5 rounded-full font-extrabold tracking-normal">Laundry POS</span>
+                    </h1>
+                    <p class="text-[11px] text-blue-200" data-key="header_subtitle">نظام إدارة مغسلة الملابس الحديث</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Orders History Modal Button -->
+                <button onclick="openHistoryModal()" class="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-2 rounded-lg border border-white/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-cyan-300"></i>
+                    <span class="hidden sm:inline" data-key="btn_history">سجل الطلبات</span>
+                </button>
+
+                <!-- Language Switcher -->
+                <button onclick="toggleLanguage()" class="bg-blue-950 hover:bg-blue-900 text-white text-xs px-3 py-2 rounded-lg border border-blue-700 transition flex items-center gap-1.5 font-bold shadow-sm" id="langBtn">
+                    <i class="fa-solid fa-globe text-cyan-400"></i> <span>Türkçe</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Main Layout Container -->
+    <main class="container mx-auto p-4 max-w-6xl my-2 flex-grow">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left Panel: Form & Item Selection (7 Cols) -->
+            <div class="lg:col-span-7 space-y-4">
+                
+                <!-- 1. Customer Information Card -->
+                <div class="bg-white rounded-2xl shadow-sm p-4 border border-slate-200/80">
+                    <h2 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2 pb-2 border-b border-slate-100">
+                        <i class="fa-solid fa-user-tag text-blue-600 bg-blue-50 p-2 rounded-lg"></i> 
+                        <span data-key="customer_info">بيانات الزبون</span>
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1" data-key="lbl_name">اسم الزبون *</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-user absolute right-3 top-3 text-slate-400 text-xs rtl:right-3 ltr:left-3"></i>
+                                <input type="text" id="customerName" placeholder="مثال: أحمد الحمصي" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-9 text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-1" data-key="lbl_phone">رقم الهاتف (WhatsApp)</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-phone absolute right-3 top-3 text-slate-400 text-xs rtl:right-3 ltr:left-3"></i>
+                                <input type="tel" id="customerPhone" placeholder="905xxxxxxxxx" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-9 text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition" dir="ltr">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Item Selection & Service Customization Grid -->
+                <div class="bg-white rounded-2xl shadow-sm p-4 border border-slate-200/80">
+                    <h2 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between pb-2 border-b border-slate-100">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-shirt text-blue-600 bg-blue-50 p-2 rounded-lg"></i> 
+                            <span data-key="add_items">إضافة القطع والخدمات</span>
+                        </span>
+                        <span class="text-[11px] text-slate-400 font-normal" data-key="select_item_hint">اختر نوع الملابس أولاً</span>
+                    </h2>
+                    
+                    <!-- Category Grid Buttons -->
+                    <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5 mb-4" id="itemGrid">
+                        <!-- Dynamic items rendered by JS -->
+                    </div>
+
+                    <!-- Active Item Service Controls Box -->
+                    <div id="serviceControls" class="bg-gradient-to-br from-slate-50 to-blue-50/30 p-4 rounded-xl border border-blue-100 space-y-4 hidden transition-all duration-300">
+                        <div class="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                <span id="selectedItemTitle" class="font-extrabold text-blue-900 text-sm"></span>
+                            </div>
+                            <span class="text-[11px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md font-semibold" data-key="customize">تحديد الخدمات والعدد</span>
+                        </div>
+
+                        <!-- Services Checkboxes -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 mb-2" data-key="select_services">الخدمات المطلوبة:</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-semibold">
+                                <label class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition shadow-sm">
+                                    <input type="checkbox" id="srvWashing" onchange="calculateSuggestedPrice()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"> 
+                                    <span data-key="srv_wash">غسيل</span>
+                                </label>
+                                <label class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition shadow-sm">
+                                    <input type="checkbox" id="srvIroning" onchange="calculateSuggestedPrice()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"> 
+                                    <span data-key="srv_iron">كوي</span>
+                                </label>
+                                <label class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition shadow-sm">
+                                    <input type="checkbox" id="srvDryClean" onchange="calculateSuggestedPrice()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"> 
+                                    <span data-key="srv_dryclean">غسيل جاف</span>
+                                </label>
+                                <label class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:border-blue-400 transition shadow-sm">
+                                    <input type="checkbox" id="srvTailoring" onchange="calculateSuggestedPrice()" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"> 
+                                    <span data-key="srv_tailor">خياطة</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Quantity and Custom Price Inputs -->
+                        <div class="grid grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1" data-key="quantity">العدد (الكمية)</label>
+                                <div class="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
+                                    <button onclick="changeQty(-1)" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 transition font-bold text-sm">-</button>
+                                    <input type="number" id="itemQty" value="1" min="1" onchange="calculateSuggestedPrice()" class="w-full py-1 text-center font-bold text-slate-800 text-sm outline-none">
+                                    <button onclick="changeQty(1)" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 transition font-bold text-sm">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 mb-1" data-key="price">السعر الإجمالي (TL)</label>
+                                <div class="relative">
+                                    <input type="number" id="itemPrice" placeholder="0.00" step="0.5" class="w-full border border-slate-200 rounded-lg p-2 text-sm text-center font-extrabold text-blue-900 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <span class="absolute left-2 top-2.5 text-xs font-bold text-slate-400 rtl:left-2 ltr:right-2">TL</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Notes/Details -->
+                        <div>
+                            <input type="text" id="itemNotes" placeholder="ملاحظات خاصة بالقطعة (مثال: بقعة على الكم، لون أبيض...)" class="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                        </div>
+
+                        <button onclick="addItemToCart()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-extrabold transition shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-cart-plus text-sm"></i> 
+                            <span data-key="btn_add">إضافة القطعة للسلة</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Cart Summary & Actions (5 Cols) -->
+            <div class="lg:col-span-5 space-y-4">
+                <div class="bg-white rounded-2xl shadow-sm p-4 border border-slate-200/80 sticky top-20 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-receipt text-blue-600 bg-blue-50 p-2 rounded-lg"></i> 
+                                <span data-key="cart">سلة الطلب الراهن</span>
+                            </h2>
+                            <span id="cartCount" class="bg-blue-600 text-white text-xs font-extrabold px-2.5 py-0.5 rounded-full shadow-sm">0</span>
+                        </div>
+
+                        <!-- Cart Items Scroll Area -->
+                        <div id="cartList" class="space-y-2 max-h-[320px] overflow-y-auto pr-1 mb-4 divide-y divide-slate-100">
+                            <!-- Dynamic Cart Items -->
+                            <div class="text-center text-slate-400 py-10 flex flex-col items-center gap-2">
+                                <i class="fa-solid fa-basket-shopping text-4xl text-slate-200"></i>
+                                <p class="text-xs" data-key="cart_empty">السلة فارغة حالياً، أضف قطعاً للبدء</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checkout Box -->
+                    <div class="border-t border-slate-200 pt-3 space-y-3 bg-slate-50/50 p-3 rounded-xl">
+                        <div class="flex justify-between items-center font-extrabold text-slate-800">
+                            <span class="text-xs" data-key="total">المجموع الكلي:</span>
+                            <span id="totalPrice" class="text-xl text-blue-900 tracking-tight">0.00 TL</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-2">
+                            <button onclick="confirmAndSend()" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-3 rounded-xl text-xs font-extrabold transition shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-print text-sm"></i> 
+                                <span data-key="btn_confirm">تأكيد وحفظ وطباعة الفاتورة</span>
+                            </button>
+                            
+                            <button onclick="sendViaWhatsApp()" class="w-full bg-slate-800 hover:bg-slate-900 text-emerald-400 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border border-slate-700">
+                                <i class="fa-brands fa-whatsapp text-lg text-emerald-400"></i> 
+                                <span data-key="btn_whatsapp">إرسال الفاتورة عبر واتساب</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-100">
+            <div class="p-4 bg-blue-900 text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-packing text-cyan-300"></i>
+                    <span data-key="history_title">سجل الفواتير والطلبات السابقة</span>
+                </h3>
+                <button onclick="closeHistoryModal()" class="text-slate-300 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto flex-grow" id="historyOrdersList">
+                <!-- Dynamic History Cards -->
+            </div>
+
+            <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs">
+                <button onclick="clearAllHistory()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1">
+                    <i class="fa-solid fa-trash"></i> <span data-key="clear_history">مسح كافة السجلات</span>
+                </button>
+                <button onclick="closeHistoryModal()" class="bg-slate-200 hover:bg-slate-300 px-4 py-1.5 rounded-lg font-bold text-slate-700">
+                    <span data-key="close">إغلاق</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Printable Receipt Template -->
+    <div id="printable-receipt" class="hidden bg-white text-slate-900 text-xs leading-tight">
+        <div class="text-center border-b border-dashed border-slate-400 pb-3 mb-3">
+            <h2 class="text-lg font-black tracking-widest uppercase">ALHOMSI LAUNDRY</h2>
+            <p class="text-[10px] text-slate-600 font-bold">مغسلة ملابس الحمصي الحديثة</p>
+            <p class="font-bold my-1 text-[10px] text-slate-700" id="rcptHeader">تشرفنا بمراجعتكم ونشكركم لثقتكم بنا</p>
+            <p id="rcptDate" class="text-[9px] text-slate-500 mt-1"></p>
+            <p id="rcptOrderNo" class="text-[10px] font-bold text-slate-800"></p>
+        </div>
+
+        <div class="mb-3 text-[11px] space-y-0.5 border-b border-dashed border-slate-400 pb-2">
+            <p><strong>اسم الزبون:</strong> <span id="rcptCustomer"></span></p>
+            <p><strong>الهاتف:</strong> <span id="rcptPhone"></span></p>
+        </div>
+
+        <table class="w-full text-right text-[10px] mb-3">
+            <thead>
+                <tr class="border-b border-slate-400 text-slate-600">
+                    <th class="py-1 text-right">القطعة</th>
+                    <th class="py-1 text-right">الخدمة</th>
+                    <th class="py-1 text-center">العدد</th>
+                    <th class="py-1 text-left">السعر</th>
+                </tr>
+            </thead>
+            <tbody id="rcptItems" class="divide-y divide-slate-200"></tbody>
+        </table>
+
+        <div class="border-t border-b border-slate-800 py-1.5 text-left font-black text-xs mb-3 flex justify-between items-center">
+            <span>المجموع الإجمالي:</span>
+            <span><span id="rcptTotal"></span> TL</span>
+        </div>
+
+        <div class="text-center text-[9px] text-slate-600 space-y-1">
+            <p class="font-bold">شكراً لزيارتكم - İstanbul Sarıyer</p>
+            <p dir="ltr">+90 552 516 77 81</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 text-[11px] py-3 text-center border-t border-slate-800">
+        <p>© 2026 ALHOMSI Laundry Management System. All Rights Reserved.</p>
+    </footer>
+
+    <!-- Main JavaScript Logic -->
+    <script>
+        // Item catalog with icons and base service prices (in TL)
+        const clothes = [
+            { id: 'custom', name_ar: '✨ قطعة مخصصة', name_tr: '✨ Özel Ürün', icon: 'fa-pen-to-square', basePrice: 50 },
+            { id: 'jacket', name_ar: 'جاكيت / ستره', name_tr: 'Ceket', icon: 'fa-user-tie', basePrice: 100 },
+            { id: 'pants', name_ar: 'بنطال', name_tr: 'Pantolon', icon: 'fa-socks', basePrice: 60 },
+            { id: 'shirt', name_ar: 'قميص', name_tr: 'Gömlek', icon: 'fa-shirt', basePrice: 50 },
+            { id: 'tshirt', name_ar: 'تيشيرت', name_tr: 'T-Shirt', icon: 'fa-vest', basePrice: 40 },
+            { id: 'coat', name_ar: 'معطف / بالطو', name_tr: 'Palto / Mont', icon: 'fa-coat', basePrice: 150 },
+            { id: 'dress', name_ar: 'فستان', name_tr: 'Elbise', icon: 'fa-person-dress', basePrice: 120 },
+            { id: 'suit', name_ar: 'بدلة رسمية', name_tr: 'Takım Elbise', icon: 'fa-user-astronaut', basePrice: 200 },
+            { id: 'blanket', name_ar: 'بطانية / لحاف', name_tr: 'Battaniye', icon: 'fa-mattress-pillow', basePrice: 180 }
+        ];
+
+        let currentLang = 'ar';
+        let selectedItem = null;
+        let cart = [];
+        let orderHistory = JSON.parse(localStorage.getItem('alhomsi_laundry_orders') || '[]');
+
+        // Dictionary for multi-language support
+        const translations = {
+            ar: {
+                header_subtitle: 'نظام إدارة مغسلة الملابس الحديث',
+                customer_info: 'بيانات الزبون',
+                lbl_name: 'اسم الزبون *',
+                lbl_phone: 'رقم الهاتف (WhatsApp)',
+                add_items: 'إضافة القطع والخدمات',
+                select_item_hint: 'انقر على نوع الملابس',
+                customize: 'تحديد الخدمات والعدد',
+                select_services: 'الخدمات المطلوبة:',
+                srv_wash: 'غسيل',
+                srv_iron: 'كوي',
+                srv_dryclean: 'غسيل جاف',
+                srv_tailor: 'خياطة',
+                quantity: 'العدد (الكمية)',
+                price: 'السعر الإجمالي (TL)',
+                btn_add: 'إضافة القطعة للسلة',
+                cart: 'سلة الطلب الراهن',
+                cart_empty: 'السلة فارغة حالياً، أضف قطعاً للبدء',
+                total: 'المجموع الكلي:',
+                btn_confirm: 'تأكيد وحفظ وطباعة الفاتورة',
+                btn_whatsapp: 'إرسال الفاتورة عبر واتساب',
+                btn_history: 'سجل الطلبات',
+                history_title: 'سجل الفواتير والطلبات السابقة',
+                clear_history: 'مسح كافة السجلات',
+                close: 'إغلاق',
+                msg_empty_fields: 'يرجى إدخال اسم الزبون وإضافة قطعة واحدة على الأقل!',
+                msg_item_added: 'تمت إضافة القطعة بنجاح للسلة',
+                msg_select_service: 'يرجى اختيار خدمة واحدة على الأقل!',
+                msg_enter_item_name: 'يرجى كتابة اسم القطعة المخصصة!'
+            },
+            tr: {
+                header_subtitle: 'Modern Çamaşırhane Yönetim Sistemi',
+                customer_info: 'Müşteri Bilgileri',
+                lbl_name: 'Müşteri Adı *',
+                lbl_phone: 'Telefon (WhatsApp)',
+                add_items: 'Ürün ve Hizmet Ekle',
+                select_item_hint: 'Giysi türünü seçin',
+                customize: 'Hizmet ve Adet Belirleme',
+                select_services: 'İstenen Hizmetler:',
+                srv_wash: 'Yıkama',
+                srv_iron: 'Ütü',
+                srv_dryclean: 'Kuru Temizleme',
+                srv_tailor: 'Terzi',
+                quantity: 'Adet (Miktar)',
+                price: 'Toplam Fiyat (TL)',
+                btn_add: 'Ürünü Sepete Ekle',
+                cart: 'Mevcut Sipariş Sepeti',
+                cart_empty: 'Sepet henüz boş, başlamak için ürün ekleyin',
+                total: 'Genel Toplam:',
+                btn_confirm: 'Siparişi Kaydet ve Yazdır',
+                btn_whatsapp: 'WhatsApp ile Fatura Gönder',
+                btn_history: 'Sipariş Geçmişi',
+                history_title: 'Geçmiş Sipariş ve Fatura Kayıtları',
+                clear_history: 'Tüm Kayıtları Temizle',
+                close: 'Kapat',
+                msg_empty_fields: 'Lütfen müşteri adını girin ve en az bir ürün ekleyin!',
+                msg_item_added: 'Ürün sepete başarıyla eklendi',
+                msg_select_service: 'Lütfen en az bir hizmet seçin!',
+                msg_enter_item_name: 'Lütfen özel ürün adını giriniz!'
+            }
+        };
+
+        // Render Item Buttons
+        function renderItems() {
+            const grid = document.getElementById('itemGrid');
+            grid.innerHTML = clothes.map(c => `
+                <button onclick="selectCloth('${c.id}')" id="btn-item-${c.id}" class="item-btn flex flex-col items-center justify-center p-3 border ${c.id === 'custom' ? 'border-amber-300 bg-amber-50/50 hover:bg-amber-100/60' : 'border-slate-200 bg-white hover:bg-blue-50'} rounded-xl hover:border-blue-400 active:scale-95 transition text-slate-700 shadow-sm">
+                    <i class="fa-solid ${c.icon} text-2xl ${c.id === 'custom' ? 'text-amber-600' : 'text-blue-600'} mb-1.5"></i>
+                    <span class="text-xs font-bold text-center leading-tight">${currentLang === 'ar' ? c.name_ar : c.name_tr}</span>
+                </button>
+            `).join('');
+        }
+
+        // Handle Item Click
+        function selectCloth(id) {
+            selectedItem = clothes.find(c => c.id === id);
+            
+            // Highlight selected button
+            document.querySelectorAll('.item-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50'));
+            const activeBtn = document.getElementById(`btn-item-${id}`);
+            if (activeBtn) activeBtn.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+
+            document.getElementById('serviceControls').classList.remove('hidden');
+
+            const customNameContainer = document.getElementById('customNameContainer');
+            if (id === 'custom') {
+                document.getElementById('selectedItemTitle').innerText = currentLang === 'ar' ? 'إضافة قطعة مخصصة' : 'Özel Ürün Ekleme';
+                if (!customNameContainer) {
+                    const nameInputHtml = `
+                        <div id="customNameContainer" class="bg-amber-50 p-2.5 rounded-xl border border-amber-200 mb-2">
+                            <label class="block text-[11px] font-bold text-amber-900 mb-1">اسم القطعة (كتابة خاصة):</label>
+                            <input type="text" id="customItemName" placeholder="مثال: ستارة، سجاد، قبعة..." class="w-full bg-white border border-amber-300 rounded-lg p-2 text-xs font-bold focus:ring-2 focus:ring-amber-500 outline-none">
+                        </div>
+                    `;
+                    document.getElementById('serviceControls').insertAdjacentHTML('afterbegin', nameInputHtml);
+                } else {
+                    customNameContainer.classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('selectedItemTitle').innerText = currentLang === 'ar' ? selectedItem.name_ar : selectedItem.name_tr;
+                if (customNameContainer) {
+                    customNameContainer.classList.add('hidden');
+                }
+            }
+            
+            // Reset checkboxes
+            document.getElementById('srvWashing').checked = true;
+            document.getElementById('srvIroning').checked = true;
+            document.getElementById('srvDryClean').checked = false;
+            document.getElementById('srvTailoring').checked = false;
+            document.getElementById('itemQty').value = 1;
+            document.getElementById('itemNotes').value = '';
+
+            calculateSuggestedPrice();
+        }
+
+        // Adjust Quantity
+        function changeQty(delta) {
+            const qtyInput = document.getElementById('itemQty');
+            let current = parseInt(qtyInput.value) || 1;
+            current += delta;
+            if (current < 1) current = 1;
+            qtyInput.value = current;
+            calculateSuggestedPrice();
+        }
+
+        // Auto calculate price based on item base price, services selected, and quantity
+        function calculateSuggestedPrice() {
+            if (!selectedItem) return;
+            
+            let multiplier = 0;
+            if (document.getElementById('srvWashing').checked) multiplier += 0.6;
+            if (document.getElementById('srvIroning').checked) multiplier += 0.4;
+            if (document.getElementById('srvDryClean').checked) multiplier += 1.0;
+            if (document.getElementById('srvTailoring').checked) multiplier += 0.8;
+
+            if (multiplier === 0) multiplier = 0.5; // default fallback
+
+            const qty = parseInt(document.getElementById('itemQty').value) || 1;
+            const calculated = Math.round(selectedItem.basePrice * multiplier * qty);
+            document.getElementById('itemPrice').value = calculated;
+        }
+
+        // Add Item to Cart
+        function addItemToCart() {
+            if (!selectedItem) return;
+
+            let itemName = currentLang === 'ar' ? selectedItem.name_ar : selectedItem.name_tr;
+
+            if (selectedItem.id === 'custom') {
+                const customInput = document.getElementById('customItemName');
+                const customVal = customInput ? customInput.value.trim() : '';
+                if (!customVal) {
+                    showToast(translations[currentLang].msg_enter_item_name, 'warning');
+                    return;
+                }
+                itemName = customVal;
+            }
+
+            const qty = parseInt(document.getElementById('itemQty').value) || 1;
+            const price = parseFloat(document.getElementById('itemPrice').value) || 0;
+            const notes = document.getElementById('itemNotes').value.trim();
+
+            const services = [];
+            if (document.getElementById('srvWashing').checked) services.push(translations[currentLang].srv_wash);
+            if (document.getElementById('srvIroning').checked) services.push(translations[currentLang].srv_iron);
+            if (document.getElementById('srvDryClean').checked) services.push(translations[currentLang].srv_dryclean);
+            if (document.getElementById('srvTailoring').checked) services.push(translations[currentLang].srv_tailor);
+
+            if (services.length === 0) {
+                showToast(translations[currentLang].msg_select_service, 'warning');
+                return;
+            }
+
+            cart.push({
+                id: Date.now(),
+                name: itemName,
+                qty,
+                price,
+                notes,
+                services: services.join(' + ')
+            });
+
+            updateCart();
+            showToast(translations[currentLang].msg_item_added, 'success');
+
+            // Reset Controls
+            document.getElementById('serviceControls').classList.add('hidden');
+            document.querySelectorAll('.item-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50'));
+            selectedItem = null;
+        }
+
+        // Update Cart UI
+        function updateCart() {
+            const list = document.getElementById('cartList');
+            const totalEl = document.getElementById('totalPrice');
+            document.getElementById('cartCount').innerText = cart.length;
+
+            if (cart.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center text-slate-400 py-10 flex flex-col items-center gap-2">
+                        <i class="fa-solid fa-basket-shopping text-4xl text-slate-200"></i>
+                        <p class="text-xs">${translations[currentLang].cart_empty}</p>
+                    </div>`;
+                totalEl.innerText = '0.00 TL';
+                return;
+            }
+
+            let total = 0;
+            list.innerHTML = cart.map((item, idx) => {
+                total += item.price;
+                return `
+                    <div class="flex justify-between items-center pt-2 pb-2">
+                        <div class="space-y-0.5">
+                            <p class="font-extrabold text-slate-800 text-xs">${item.name} <span class="text-blue-600">(x${item.qty})</span></p>
+                            <p class="text-[10px] text-slate-500 font-semibold">${item.services}</p>
+                            ${item.notes ? `<p class="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded inline-block">📝 ${item.notes}</p>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-xs text-blue-900">${item.price.toFixed(2)} TL</span>
+                            <button onclick="removeFromCart(${idx})" class="text-slate-400 hover:text-red-500 transition p-1">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            totalEl.innerText = total.toFixed(2) + ' TL';
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCart();
+        }
+
+        // Confirm & Print Order
+        function confirmAndSend() {
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+
+            if (!name || cart.length === 0) {
+                showToast(translations[currentLang].msg_empty_fields, 'warning');
+                return;
+            }
+
+            const total = cart.reduce((sum, item) => sum + item.price, 0);
+            const orderNo = '#' + Math.floor(100000 + Math.random() * 900000);
+            const dateStr = new Date().toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'tr-TR');
+
+            // Save to localStorage
+            const newOrder = {
+                id: orderNo,
+                date: dateStr,
+                customer: name,
+                phone: phone || '-',
+                items: [...cart],
+                total: total
+            };
+            orderHistory.unshift(newOrder);
+            localStorage.setItem('alhomsi_laundry_orders', JSON.stringify(orderHistory));
+
+            // Fill Print Receipt
+            document.getElementById('rcptCustomer').innerText = name;
+            document.getElementById('rcptPhone').innerText = phone || '-';
+            document.getElementById('rcptDate').innerText = dateStr;
+            document.getElementById('rcptOrderNo').innerText = 'رقم الطلب: ' + orderNo;
+            
+            document.getElementById('rcptItems').innerHTML = cart.map(i => `
+                <tr>
+                    <td class="py-1 font-bold">${i.name}</td>
+                    <td class="py-1 text-slate-600">${i.services}</td>
+                    <td class="py-1 text-center font-bold">${i.qty}</td>
+                    <td class="py-1 text-left font-bold">${i.price.toFixed(2)} TL</td>
+                </tr>
+            `).join('');
+            document.getElementById('rcptTotal').innerText = total.toFixed(2);
+
+            // Trigger Window Print
+            window.print();
+
+            // Clear Current Form
+            cart = [];
+            updateCart();
+            document.getElementById('customerName').value = '';
+            document.getElementById('customerPhone').value = '';
+        }
+
+        // Send Order Receipt via WhatsApp
+        function sendViaWhatsApp() {
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+
+            if (!name || cart.length === 0) {
+                showToast(translations[currentLang].msg_empty_fields, 'warning');
+                return;
+            }
+
+            let cleanPhone = phone.replace(/[^0-9]/g, '');
+            if (!cleanPhone) {
+                showToast('يرجى إدخال رقم هاتف صحيح لإرسال الفاتورة عبر الواتساب', 'warning');
+                return;
+            }
+
+            let total = cart.reduce((sum, item) => sum + item.price, 0);
+            let msg = `*مغسلة ملابس ALHOMSI LAUNDRY*\n`;
+            msg += `أهلاً بك عزيزي: *${name}*\n`;
+            msg += `تفاصيل طلبك لدينا:\n--------------------------\n`;
+            
+            cart.forEach(item => {
+                msg += `• ${item.name} (${item.qty} قطعة) - [${item.services}] : ${item.price} TL\n`;
+            });
+            
+            msg += `--------------------------\n`;
+            msg += `*المجموع الكلي: ${total.toFixed(2)} TL*\n\n`;
+            msg += `شكراً لزيارتكم! 🧼✨`;
+
+            const encodedMsg = encodeURIComponent(msg);
+            window.open(`https://wa.me/${cleanPhone}?text=${encodedMsg}`, '_blank');
+        }
+
+        // Modal History Controls
+        function openHistoryModal() {
+            renderHistoryOrders();
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function renderHistoryOrders() {
+            const container = document.getElementById('historyOrdersList');
+            if (orderHistory.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-slate-400 py-10">
+                        <i class="fa-solid fa-folder-open text-4xl mb-2"></i>
+                        <p class="text-xs">لا يوجد أي فواتير مسجلة سابقاً</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = orderHistory.map(o => `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 hover:border-blue-300 transition shadow-sm">
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-2 text-xs">
+                        <div>
+                            <span class="font-extrabold text-blue-900">${o.customer}</span>
+                            <span class="text-slate-400 text-[10px] ml-2">(${o.phone})</span>
+                        </div>
+                        <div class="text-slate-500 text-[10px]">
+                            <span>${o.id}</span> | <span>${o.date}</span>
+                        </div>
+                    </div>
+                    <div class="text-xs space-y-1 mb-2">
+                        ${o.items.map(i => `<div class="flex justify-between text-slate-600"><span>• ${i.name} (x${i.qty}) - ${i.services}</span><span>${i.price} TL</span></div>`).join('')}
+                    </div>
+                    <div class="flex justify-between items-center border-t border-slate-200 pt-2 text-xs font-bold">
+                        <span class="text-blue-900">المجموع: ${o.total.toFixed(2)} TL</span>
+                        <button onclick="reprintHistoryOrder('${o.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-[11px] flex items-center gap-1 transition">
+                            <i class="fa-solid fa-print"></i> إعادة طباعة
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function reprintHistoryOrder(orderId) {
+            const order = orderHistory.find(o => o.id === orderId);
+            if (!order) return;
+
+            document.getElementById('rcptCustomer').innerText = order.customer;
+            document.getElementById('rcptPhone').innerText = order.phone;
+            document.getElementById('rcptDate').innerText = order.date;
+            document.getElementById('rcptOrderNo').innerText = 'رقم الطلب: ' + order.id;
+            
+            document.getElementById('rcptItems').innerHTML = order.items.map(i => `
+                <tr>
+                    <td class="py-1 font-bold">${i.name}</td>
+                    <td class="py-1 text-slate-600">${i.services}</td>
+                    <td class="py-1 text-center font-bold">${i.qty}</td>
+                    <td class="py-1 text-left font-bold">${i.price.toFixed(2)} TL</td>
+                </tr>
+            `).join('');
+            document.getElementById('rcptTotal').innerText = order.total.toFixed(2);
+
+            window.print();
+        }
+
+        function clearAllHistory() {
+            if (confirm('هل أنت تأكد من مسح كافة سجل الفواتير والمبيعات؟')) {
+                orderHistory = [];
+                localStorage.removeItem('alhomsi_laundry_orders');
+                renderHistoryOrders();
+            }
+        }
+
+        // Language Switcher
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'tr' : 'ar';
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            document.getElementById('langBtn').innerHTML = currentLang === 'ar' ? '<i class="fa-solid fa-globe text-cyan-400"></i> <span>Türkçe</span>' : '<i class="fa-solid fa-globe text-cyan-400"></i> <span>العربية</span>';
+            
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.getAttribute('data-key');
+                if (translations[currentLang][key]) {
+                    el.innerText = translations[currentLang][key];
+                }
+            });
+
+            renderItems();
+            updateCart();
+        }
+
+        // Helper Toast Notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+            if (type === 'warning') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Initialize App on load
+        window.onload = function() {
+            renderItems();
+            updateCart();
+        };
+    </script>
+</body>
+</html>
+```
